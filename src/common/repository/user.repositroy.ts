@@ -7,3 +7,5 @@ export class UserRepository extends DatabaseRepository<Iuser> {
     super(userModel);
   }
 }
+
+export default new UserRepository();
