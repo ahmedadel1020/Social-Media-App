@@ -1,3 +1,4 @@
+import { OAuth2Client, TokenPayload } from "google-auth-library";
 import { EmailSubjectEnum } from "../../common/enum/email.enum";
 import { ProviderEnum } from "../../common/enum/user.enum";
 import {
@@ -10,10 +11,10 @@ import { Iuser } from "../../common/interface/user.interface";
 import { UserRepository } from "../../common/repository/user.repositroy";
 import { encryption } from "../../common/security/encryption.security";
 import { compare, hash } from "../../common/security/hash.security";
-import {
+import cacheService, {
   CahcheService,
-  cacheService,
 } from "../../common/service/cache.service";
+import { tokenService, TokenService } from "../../common/service/token.service";
 import { emailEvent } from "../../common/utils/email/email.event";
 import {
   userEmailKey,
@@ -23,16 +24,74 @@ import { createOtp } from "../../common/utils/otp";
 import { HUser } from "../../DB/model/user.model";
 import {
   ConfirmEmailDto,
+  LoginDto,
   resendConfirmEmailDto,
   SignupDto,
 } from "./dto/auth.dto";
+import {
+  ILoginResponse,
+  ISignupWithGmailResponse,
+} from "./entities/auth.entities";
+import { WEB_CLIENT_ID } from "../../config";
 
 export class AuthService {
   private userReposiroty: UserRepository;
   private cacheService: CahcheService;
+  private tokenservice: TokenService;
+  private client: OAuth2Client;
   constructor() {
     this.userReposiroty = new UserRepository();
     this.cacheService = cacheService;
+    this.tokenservice = tokenService;
+    this.client = new OAuth2Client();
+  }
+
+  async verifyGoogleAccount(idToken: string): Promise<TokenPayload> {
+    const ticket = await this.client.verifyIdToken({
+      idToken,
+      audience: WEB_CLIENT_ID,
+    });
+    const payload = ticket.getPayload();
+    if (!payload?.email_verified)
+      throw new BadRequestException("email not Verified");
+    return payload;
+  }
+
+  async signupWithGmail(
+    { idToken }: { idToken: string },
+    issuer: string,
+  ): Promise<ISignupWithGmailResponse> {
+    const { name, email, picture } = await this.verifyGoogleAccount(idToken);
+    let status = 201;
+    const existAcc = await this.userReposiroty.findOne({
+      filter: { email: email as string },
+    });
+    if (existAcc) {
+      if (existAcc.provider != ProviderEnum.GOOGLE) {
+        throw new ConflictRequestException("user already exist");
+      }
+      status = 200;
+      return {
+        status: 200,
+        data: await this.tokenservice.createLoginCredintials({
+          user: existAcc,
+          issuer,
+        }),
+      };
+    }
+    const user = await this.userReposiroty.createOne({
+      data: {
+        username: name,
+        email,
+        confirmEmail: new Date(),
+        provider: ProviderEnum.GOOGLE,
+        image: picture,
+      },
+    });
+    return {
+      status: 201,
+      data: await this.tokenservice.createLoginCredintials({ user, issuer }),
+    };
   }
 
   async sendEmailOtp({
@@ -124,7 +183,7 @@ export class AuthService {
     if (!hashOtp || !(await compare(otp, hashOtp))) {
       throw new ConflictRequestException("invalid otp");
     }
-    account.confirmEmail = new Date() as unknown as string;
+    account.confirmEmail = new Date();
     await account.save();
     await this.cacheService.del({
       key: await this.cacheService.keys({
@@ -149,6 +208,58 @@ export class AuthService {
     if (!account) throw new NotFoundRequestException("invalid account");
     await this.sendEmailOtp({ email, subject: EmailSubjectEnum.CONFIRM_EMAIL });
     return;
+  }
+
+  async login(
+    { email, password }: LoginDto["body"],
+    issuer: string,
+    maxTrials: number = 5,
+    blockInSeconds: number = 300,
+  ): Promise<ILoginResponse | undefined> {
+    const account = await this.userReposiroty.findOne({
+      filter: {
+        email,
+        provider: ProviderEnum.SYSTEM,
+        confirmEmail: { $exists: true },
+      },
+    });
+    if (!account) throw new NotFoundRequestException("user not found");
+    const match = await compare(password, account.password);
+
+    if (!match) {
+      const oldTrials =
+        (await this.cacheService.get({
+          key: `User${email}::password::trial`,
+        })) ?? 0;
+      if (oldTrials >= maxTrials) {
+        throw new TooManyRequestException(
+          "maximum password trials has been reached try again after 5 minutes",
+        );
+      }
+      const currentTrials = await this.cacheService.incrBy({
+        key: `User${email}::password::trial`,
+      });
+      if (currentTrials == maxTrials) {
+        await this.cacheService.expire({
+          key: `User${email}::password::trial`,
+          ttl: blockInSeconds,
+        });
+      }
+      throw new NotFoundRequestException("incorrect password");
+    }
+
+    if (account.confirm2fa) {
+      await this.sendEmailOtp({
+        email,
+        subject: EmailSubjectEnum.STEP_VERIFICATION,
+      });
+      return;
+    }
+    await this.cacheService.del({ key: `User${email}::password::trial` });
+    return await this.tokenservice.createLoginCredintials({
+      user: account,
+      issuer,
+    });
   }
 }
 

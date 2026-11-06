@@ -9,3 +9,4 @@ class UserRepository extends base_repositroy_1.DatabaseRepository {
     }
 }
 exports.UserRepository = UserRepository;
+exports.default = new UserRepository();

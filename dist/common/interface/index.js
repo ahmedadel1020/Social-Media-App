@@ -17,3 +17,4 @@ Object.defineProperty(exports, "__esModule", { value: true });
 __exportStar(require("./error.interface"), exports);
 __exportStar(require("./user.interface"), exports);
 __exportStar(require("./paginate.interface"), exports);
+__exportStar(require("./response.interface"), exports);

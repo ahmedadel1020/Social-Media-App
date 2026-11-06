@@ -13,6 +13,9 @@ class DatabaseRepository {
         const [doc] = await this.create({ data: [data], options });
         return doc;
     }
+    async insertMany({ data }) {
+        return await this.model.insertMany(data);
+    }
     async findOne({ filter = {}, projection, options, }) {
         const doc = this.model.findOne(filter, projection);
         if (options?.populate) {

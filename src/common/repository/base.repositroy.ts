@@ -54,7 +54,9 @@ export abstract class DatabaseRepository<TRawDocType> {
     const [doc] = await this.create({ data: [data], options });
     return doc as HydratedDocument<TRawDocType>;
   }
-
+  async insertMany({ data }: { data: AnyKeys<TRawDocType>[] }) {
+    return await this.model.insertMany(data);
+  }
   ///finders
 
   async findOne({

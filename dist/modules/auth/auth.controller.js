@@ -41,10 +41,19 @@ const auth_service_1 = __importDefault(require("./auth.service"));
 const response_middleware_1 = require("../../middleware/response.middleware");
 const validation_middleware_1 = require("../../middleware/validation.middleware");
 const validators = __importStar(require("./auth.validation"));
+const issuer_1 = require("../../common/utils/issuer");
 const router = (0, express_1.Router)();
 router.post("/signup", (0, validation_middleware_1.validation)(validators.signup), (0, response_middleware_1.ResponseFormatter)(async (req, res, next) => {
     const data = await auth_service_1.default.signup(req.validate.body);
-    return { status: 200, message: "tets", data };
+    return { status: 200, data };
+}));
+router.post("/signup-with-gmail", (0, response_middleware_1.ResponseFormatter)(async (req, res, next) => {
+    const data = await auth_service_1.default.signupWithGmail(req.body, (0, issuer_1.getIssuer)(req));
+    return { status: 200, data };
+}));
+router.post("/login", (0, validation_middleware_1.validation)(validators.login), (0, response_middleware_1.ResponseFormatter)(async (req, res, next) => {
+    const data = await auth_service_1.default.login(req.validate.body, (0, issuer_1.getIssuer)(req));
+    return { status: 200, data };
 }));
 router.patch("/confirm-email", (0, validation_middleware_1.validation)(validators.confirmEmail), (0, response_middleware_1.ResponseFormatter)(async (req, res, next) => {
     return await auth_service_1.default.confirmEmail(req.validate.body);

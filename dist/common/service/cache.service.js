@@ -1,6 +1,6 @@
 "use strict";
 Object.defineProperty(exports, "__esModule", { value: true });
-exports.cacheService = exports.CahcheService = void 0;
+exports.CahcheService = void 0;
 const redis_1 = require("redis");
 const config_1 = require("../../config");
 class CahcheService {
@@ -63,4 +63,4 @@ class CahcheService {
     }
 }
 exports.CahcheService = CahcheService;
-exports.cacheService = new CahcheService();
+exports.default = new CahcheService();

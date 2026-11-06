@@ -5,7 +5,7 @@ export const hash = async (
   minor: "a" | "b" = "b",
 ): Promise<string> => {
   const salt = (await bcrypt.genSalt(rounds, minor)).toString();
-  console.log(plaintext, salt);
+  // console.log(plaintext, salt);
   return await bcrypt.hash(plaintext, salt);
 };
 

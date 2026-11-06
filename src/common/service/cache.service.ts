@@ -86,4 +86,4 @@ export class CahcheService {
   }
 }
 
-export const cacheService = new CahcheService();
+export default new CahcheService();
