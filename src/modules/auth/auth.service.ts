@@ -32,16 +32,24 @@ import {
   ILoginResponse,
   ISignupWithGmailResponse,
 } from "./entities/auth.entities";
-import { WEB_CLIENT_ID } from "../../config";
+import { FRONTEND_URL, WEB_CLIENT_ID } from "../../config";
+
+import crypto from "node:crypto";
+import {
+  notificationService,
+  NotificationService,
+} from "../../common/service/notification.service";
 
 export class AuthService {
   private userReposiroty: UserRepository;
   private cacheService: CahcheService;
+  private notificationService: NotificationService;
   private tokenservice: TokenService;
   private client: OAuth2Client;
   constructor() {
     this.userReposiroty = new UserRepository();
     this.cacheService = cacheService;
+    this.notificationService = notificationService;
     this.tokenservice = tokenService;
     this.client = new OAuth2Client();
   }
@@ -211,7 +219,7 @@ export class AuthService {
   }
 
   async login(
-    { email, password }: LoginDto["body"],
+    { email, password, FCM }: LoginDto["body"],
     issuer: string,
     maxTrials: number = 5,
     blockInSeconds: number = 300,
@@ -256,10 +264,61 @@ export class AuthService {
       return;
     }
     await this.cacheService.del({ key: `User${email}::password::trial` });
+    await this.notificationService.sendNotifications({
+      tokens: await this.notificationService.getFCMS({ userId: account._id }),
+      notification: {
+        title: "Login attempt",
+        body: "New login attempt",
+      },
+    });
+    if (FCM) {
+      await this.notificationService.addFCM({ FCM, userId: account._id });
+    }
     return await this.tokenservice.createLoginCredintials({
       user: account,
       issuer,
     });
+  }
+
+  async forgotPassword({ email }: { email: string }): Promise<void> {
+    const account = await this.userReposiroty.findOne({
+      filter: {
+        email,
+        provider: ProviderEnum.SYSTEM,
+      },
+    });
+
+    if (!account) throw new NotFoundRequestException("user not found");
+    const token = crypto.randomBytes(32).toString("hex");
+    const resetKey = `RESET::PASSWORD::${token}`;
+    await this.cacheService.set({ key: resetKey, value: account.id, ttl: 300 });
+    const resetLink = `${FRONTEND_URL}/reset-password/${token}`;
+    emailEvent.emit("sendEmail", {
+      recipients: { to: account.email },
+      subject: EmailSubjectEnum.FORGOT_PASSWORD,
+      data: { link: resetLink, title: EmailSubjectEnum.FORGOT_PASSWORD },
+    });
+  }
+
+  async resetPassword({
+    token,
+    password,
+  }: {
+    token: string;
+    password: string;
+  }): Promise<void> {
+    const resetKey = `RESET::PASSWORD::${token}`;
+    const userId = await this.cacheService.get({ key: resetKey });
+
+    if (!userId) throw new NotFoundRequestException("invalid or expired token");
+    const account = await this.userReposiroty.findOne({
+      filter: { _id: userId },
+    });
+    if (!account) throw new NotFoundRequestException("user not found");
+    account.password = await hash(password);
+    account.changeCredentialsTime = new Date();
+    await account.save();
+    await this.cacheService.del({ key: resetKey });
   }
 }
 

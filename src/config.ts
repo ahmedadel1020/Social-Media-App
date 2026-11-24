@@ -35,3 +35,15 @@ export const ORIGINS: string[] = process.env.ORIGINS?.split(",") || [];
 export const APP_PASSWORD: string = process.env.APP_PASSWORD as string;
 export const APP_EMAIL: string = process.env.APP_EMAIL as string;
 export const APP_NAME: string = process.env.APP_NAME as string;
+export const FRONTEND_URL: string = process.env.FRONTEND_URL as string;
+
+export const AWS_ACCESS_KEY_ID: string = process.env
+  .AWS_ACCESS_KEY_ID as string;
+export const AWS_SECRET_ACCESS_KEY: string = process.env
+  .AWS_SECRET_ACCESS_KEY as string;
+export const AWS_REGION: string = process.env.AWS_REGION as string;
+export const AWS_BUCKET_NAME: string = process.env.AWS_BUCKET_NAME as string;
+export const APPLICATION_NAME: string = process.env.APPLICATION_NAME as string;
+export const AWS_EXPIRES_IN: number = parseInt(
+  process.env.AWS_EXPIRES_IN ?? "1800",
+);

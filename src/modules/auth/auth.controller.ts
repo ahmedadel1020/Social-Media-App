@@ -49,6 +49,26 @@ router.post(
   }),
 );
 
+router.post(
+  "/forgot-password",
+
+  ResponseFormatter(async (req: Request, res: Response, next: NextFunction) => {
+    const data = await AuthService.forgotPassword(req.validate.body);
+    return { status: 200, data };
+  }),
+);
+
+router.patch(
+  "/reset-password/:token",
+  ResponseFormatter(async (req: Request, res: Response, next: NextFunction) => {
+    const data = await AuthService.resetPassword({
+      token : req.params.token as string,
+      password: req.validate.body.password,
+    });
+    return { status: 200, data };
+  }),
+);
+
 router.patch(
   "/confirm-email",
   validation(validators.confirmEmail),

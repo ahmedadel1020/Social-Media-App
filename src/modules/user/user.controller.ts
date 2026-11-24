@@ -5,6 +5,15 @@ import { tokenTypeEnum } from "../../common/enum/security.enum";
 import { userService } from "./user.service";
 import { getIssuer } from "../../common/utils/issuer";
 import da from "zod/v4/locales/da.js";
+import { uploadMiddleware } from "../../middleware/multer.middleware";
+import {
+  fileValidation,
+  localFileUpload,
+} from "../../common/utils/multer/local.multer";
+import { StorageApproachEnum } from "../../common/enum/multer.enum";
+import { IFile } from "../../common/types/multer.types";
+import { IResponse } from "../../common/interface/response.interface";
+import { Iuser } from "../../common/interface/user.interface";
 
 const router = Router();
 
@@ -26,6 +35,28 @@ router.post(
     );
     return data;
   }),
+);
+
+router.patch(
+  "/profile-image",
+  authentication(),
+  uploadMiddleware({
+    multerMiddleware: localFileUpload({
+      storageApproach: StorageApproachEnum.MEMORY,
+    }).single("attachment"),
+    validation: fileValidation.image,
+    customPath: "User",
+  }),
+  ResponseFormatter(
+    async (
+      req: Request,
+      res: Response,
+      next: NextFunction,
+    ): Promise<IResponse<Iuser>> => {
+      const data = await userService.profileImage(req.file as IFile, req.user);
+      return { data };
+    },
+  ),
 );
 
 router.post(

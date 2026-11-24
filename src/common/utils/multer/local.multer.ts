@@ -62,14 +62,14 @@ export const processFile = async ({
     await unlink(file.path);
     throw new BadRequestException("invalid file format");
   } else {
-    await mkdir(resolve(`./assets/${customPath}`), { recursive: true });
-    const uniqueFilePath = `assets/${customPath}/${randomUUID()}.${result.ext}`;
+    // await mkdir(resolve(`./assets/${customPath}`), { recursive: true });
+    // const uniqueFilePath = `assets/${customPath}/${randomUUID()}.${result.ext}`;
 
-    await writeFile(resolve(`./${uniqueFilePath}`), file.buffer);
+    // await writeFile(resolve(`./${uniqueFilePath}`), file.buffer);
     if (file.path) {
       await unlink(file.path);
     }
-    file.path = uniqueFilePath;
+    // file.path = uniqueFilePath;
     return file;
   }
 };
